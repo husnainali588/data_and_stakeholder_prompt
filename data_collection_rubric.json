@@ -51,11 +51,14 @@
         "'contact@company.com' = 0 (generic)",
         "'admin@company.com' = 0 (generic)",
         "'support@company.com' = 0 (generic)",
+        "'reserve@rurestaurant.com' = 0 (role-based, no personal name)",
+        "'eye@lypartners.org' = 0 (role-based, no personal name)",
+        "'billing@company.com' = 0 (department-based)",
         "Fake or profane email = 0",
         "Gibberish email = 0",
         "'I'll email you' (no address given) = 0"
       ],
-      "rule": "Must be a personal format like name@company.com. Generic inboxes and promises to email do NOT count."
+      "rule": "Counts if email has a personal name as prefix (e.g. john@, sarah@, sang_acupuncture@). Does NOT count if prefix is a generic role or department like info, contact, admin, support, reserve, eye, billing etc."
     },
 
     "3_decision_maker_name": {
@@ -73,7 +76,7 @@
         "'Someone else handles that' (no name) = 0",
         "'I'll have someone call you' (no name) = 0",
         "Gatekeeper's own name when they are NOT the decision maker = 0",
-        "Agent asks 'Is this [Name]?' + prospect confirms 'Yes' + BUT then refers to someone else as decision maker = 0"
+        "Agent asks 'Is this [Name]?' + prospect says 'Yes' + BUT then refers to doctor/owner/manager as someone else = 0"
       ],
       "rule": "A specific first name (or full name) of the decision maker must be stated. Generic titles without names do NOT count."
     },
@@ -119,7 +122,7 @@
         "'My business' = 0",
         "No company name mentioned at all = 0"
       ],
-      "rule": "A specific company name must be explicitly stated. Vague references do NOT count."
+      "rule": "Company name must be confirmed BY THE PROSPECT, not just mentioned by the agent. If only the agent says the company name and prospect never confirms = does NOT count."
     },
 
     "6_current_method_or_software": {

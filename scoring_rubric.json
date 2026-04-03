@@ -1,0 +1,901 @@
+{
+  "ULTRA_CRITICAL_FOR_GPT_MODELS_READ_FIRST": {
+    "MODEL_NOTE": "These instructions are optimized for GPT-5-mini to avoid common scoring mistakes",
+    "MOST_IMPORTANT_RULES": [
+      "If you see 'stay on the line' or 'please hold' and NO LIVE HUMAN PROSPECT speaks after that = Score 0 (NOT 5)",
+      "If transcript ends abruptly during agent's incomplete sentence = Score 1 (mid-sentence hangup)",
+      "If prospect says 'I'll transfer you' but NO ONE picks up = Score 4 (failed transfer)",
+      "'Tomorrow afternoon' without specific time + no email = Score 5 (NOT 9)",
+      "Fake/profane email or nonsensical responses = Score 1 (time waster)",
+      "Name only without contact info = Score 5 (NOT 6)"
+    ],
+    "SCORE_INFLATION_WARNING": "GPT models tend to inflate scores. When in doubt, choose LOWER score. Be conservative."
+  },
+
+  "task": "Read the entire call transcript and assign one integer engagement score from 0 to 10 that reflects the prospect's level of interest and participation during this call only.",
+  
+  "CRITICAL_RULE_CHECK_FIRST": {
+    "instruction": "BEFORE ANYTHING ELSE: Use this TWO-STEP process to check for Score 0 scenarios",
+    
+    "STEP_1_DETECT_AI_RECEPTIONIST_FIRST": {
+      "question": "Is this an AI receptionist/virtual assistant call?",
+      "detection_phrases": [
+        "I'm an AI receptionist",
+        "I'm the AI receptionist for",
+        "AI receptionist for",
+        "virtual assistant",
+        "automated assistant",
+        "Who do I have the pleasure of speaking with",
+        "It's a great day at [company name]",
+        "This is [name]. Who do I have the pleasure"
+      ],
+      "OVERLY_SCRIPTED_LANGUAGE_INDICATORS": {
+        "pattern": "Repetitive formal phrases that sound automated/scripted",
+        "examples": [
+          "Repeating 'Who do I have the pleasure of speaking with' multiple times",
+          "'It's a great day at [Company]' opening",
+          "Overly formal language combined with inability to provide contact details",
+          "Says 'I don't have specific contact details' + 'I'll make a note' pattern"
+        ],
+        "action": "If detected + NO specific email provided + NO decision-maker contact given = Score 0"
+      },
+      "if_detected_go_to": "STEP_2_CHECK_FOR_EMAIL_EXCEPTION"
+    },
+    
+    "STEP_2_CHECK_FOR_EMAIL_EXCEPTION": {
+      "rule": "If AI receptionist detected, CHECK FOR SPECIFIC EMAIL before returning Score 0",
+      "email_decision_tree": {
+        "specific_personal_email_provided": {
+          "pattern": "name@company.com format (e.g., dominic@mainely-electrical.com, john@acme.com)",
+          "action": "RETURN SCORE 5 immediately (OVERRIDE Score 0)",
+          "examples": [
+            "dominic@mainely-electrical.com = Score 5",
+            "john@acmeelectric.com = Score 5",
+            "sarah@smithco.com = Score 5"
+          ]
+        },
+        "generic_email_provided": {
+          "pattern": "info@, contact@, admin@, support@",
+          "action": "RETURN SCORE 0",
+          "examples": [
+            "info@company.com = Score 0",
+            "contact@company.com = Score 0"
+          ]
+        },
+        "no_email_only_name": {
+          "pattern": "AI provides name like 'Stainless Lombard' but NO email/phone",
+          "action": "RETURN SCORE 0",
+          "examples": [
+            "Talk to John (no contact) = Score 0",
+            "Stainless Lombard handles payroll (no email) = Score 0"
+          ]
+        },
+        "no_email_no_name": {
+          "pattern": "AI takes message but provides NO decision-maker name AND NO email/phone",
+          "action": "RETURN SCORE 0",
+          "examples": [
+            "'I'll pass along your message' (no name, no contact) = Score 0",
+            "'Someone will get back to you' (no specific person or contact) = Score 0",
+            "'I don't have access to staff details' (no actionable info) = Score 0"
+          ]
+        }
+      }
+    },
+    
+    "STEP_3_CHECK_FOR_LIVE_PROSPECT_PICKUP": {
+      "CRITICAL_INSTRUCTION": "After 'stay on the line' or 'please hold', carefully check if a NEW LIVE PROSPECT (different from gatekeeper) actually speaks",
+      "verification_steps": [
+        "Step 1: Identify the gatekeeper/screener (person who said 'stay on the line')",
+        "Step 2: Look for a DIFFERENT person introducing themselves AFTER the hold",
+        "Step 3: Check if this new person engages with the agent",
+        "Step 4: If YES (new person picked up) → Score their engagement (NOT 0)",
+        "Step 5: If NO (silence, or call ends) → Score 0"
+      ],
+      "examples_NOT_zero": [
+        "Gatekeeper: 'Stay on the line' → USER: 'Hi, this is Deb from King of Hawes' → Score Deb's engagement (NOT 0)",
+        "Screener: 'Please hold' → USER: 'This is John, how can I help?' → Score John's engagement (NOT 0)",
+        "Receptionist: 'I'll see if available' → USER: 'Hey, this is Sarah' → Score Sarah's engagement (NOT 0)"
+      ],
+      "examples_ARE_zero": [
+        "Gatekeeper: 'Stay on the line' → [silence] → [call ends] = Score 0",
+        "Screener: 'Please hold' → [hold music] → [no pickup] = Score 0",
+        "Receptionist: 'I'll see if available' → [no response] = Score 0"
+      ]
+    },
+    
+    "RETURN_ZERO_IMMEDIATELY_IF_YOU_SEE": [
+      "ANY voicemail greeting or 'leave a message' (unless SPECIFIC email provided by AI receptionist)",
+      "IVR/phone tree ('press 1', 'press 2', automated menu)",
+      "'Stay on the line' with NO DIFFERENT PERSON pickup after (silence or call ends)",
+      "'Please hold' with NO NEW PERSON speaking after (silence or call ends)",
+      "'I'll see if this person is available' + NO NEW PERSON speaks (silence or call ends)",
+      "'Record your name and reason' + NO NEW PERSON speaks after recording",
+      "AI receptionist provides ONLY name (no email/phone) + no live human = 0",
+      "AI receptionist provides GENERIC email (info@, contact@) + no live human = 0",
+      "Gatekeeper screening + NO actual decision-maker speaks (no new person picks up)",
+      "Call ends during hold/transfer with NO new person engagement",
+      "AI receptionist/voicemail takes message but provides NO name AND NO contact info = 0"
+    ],
+    
+    "CRITICAL_EXCEPTION_DO_NOT_RETURN_ZERO_IF": {
+      "live_prospect_picked_up": "If 'stay on the line' BUT a NEW LIVE PERSON (different from gatekeeper) picks up and speaks → Score THEIR engagement (NOT 0)",
+      "ai_receptionist_specific_email": "AI receptionist provides SPECIFIC personal email (name@company.com) = Score 5, NOT 0",
+      "verification_checklist": [
+        "Step 1: Detect 'AI receptionist' or 'virtual assistant'",
+        "Step 2: Did they provide an email?",
+        "Step 3: Is it SPECIFIC (dominic@company.com) or GENERIC (info@company.com)?",
+        "Step 4: If SPECIFIC → Score 5 | If GENERIC or NO EMAIL → Score 0"
+      ],
+      "verification_checklist_screening": [
+        "Step 1: Detect 'stay on the line' or 'please hold'",
+        "Step 2: Did a DIFFERENT person (not gatekeeper) introduce themselves after?",
+        "Step 3: If YES → Score their engagement | If NO → Score 0"
+      ],
+      "examples_score_5_not_0": [
+        "AI: 'Email dominic@mainely-electrical.com' = Score 5 (specific email exception)",
+        "AI: 'Contact sarah@acme.com' = Score 5 (specific email exception)",
+        "AI: 'Reach out to john@smithco.com' = Score 5 (specific email exception)"
+      ],
+      "examples_score_their_engagement_not_0": [
+        "Gatekeeper: 'Stay on the line' → Deb: 'Hi, this is Deb. We're busy, call next week' = Score 3 (Deb engaged, resistant)",
+        "Screener: 'Please hold' → John: 'This is John, not interested' = Score 2 (John engaged, dismissive)"
+      ],
+      "examples_score_0": [
+        "AI: 'Stainless Lombard handles payroll' (name only) = Score 0",
+        "AI: 'Email info@company.com' (generic) = Score 0",
+        "AI: 'Contact us at contact@company.com' (generic) = Score 0",
+        "Gatekeeper: 'Stay on the line' → [silence] → [ends] = Score 0",
+        "Screener: 'Please hold' → [no pickup] = Score 0"
+      ]
+    },
+
+    "HOW_TO_DETECT_NO_LIVE_PROSPECT": {
+      "look_for_these_exact_phrases": [
+        "stay on the line",
+        "please hold", 
+        "I'll see if available",
+        "I'll see if this person is available",
+        "record your name",
+        "leave a message",
+        "I'm an AI",
+        "I'm the AI receptionist",
+        "virtual assistant"
+      ],
+      "then_check": "Did a NEW LIVE PROSPECT (different person than gatekeeper) speak AFTER these phrases? If NO → Check email exception first, then Score 0. If YES → Score the new person's engagement."
+    },
+    
+    "VOICEMAIL_SCREENING_EXAMPLES": {
+      "example_1": "USER: 'I'll see if available' → AGENT: [explains] → USER: 'Stay on the line' → [no pickup] = Score 0",
+      "example_2": "USER: 'Record your name' → AGENT: [records] → [no prospect speaks] = Score 0",
+      "example_3": "USER: 'Please hold' → [hold music] → [no prospect] = Score 0",
+      "example_4_AI_no_email": "AI: 'Stainless Lombard handles payroll' (name only, no email) = Score 0",
+      "example_5_AI_specific_email": "AI: 'Email dominic@mainely-electrical.com' = Score 5 (exception applies)",
+      "example_6_pickup_happened": "Gatekeeper: 'Stay on the line' → Deb: 'Hi, this is Deb, we're busy' = Score 3 (NOT 0, someone picked up)",
+      "example_7_AI_no_info": "AI: 'I'll pass your message along' (no name, no email given) = Score 0"
+    },
+
+    "DEFAULT_BEHAVIOR": "When in doubt whether NEW live prospect spoke after screening, assume NO. But ALWAYS check if a DIFFERENT PERSON picked up after 'stay on line' - if they did, score their engagement. ALWAYS check for specific email exception before returning 0 for AI receptionist calls.",
+    
+    "OVERRIDE_ALL_OTHER_SCORES": {
+      "rule": "Score 0 takes ABSOLUTE PRIORITY over all other scores, EXCEPT when live prospect picked up OR specific email exception applies",
+      "instruction": "If ANY Score 0 condition is met AND no new person picked up, immediately return 0 UNLESS AI receptionist provided specific personal email (then Score 5)",
+      "hierarchy": "Live prospect pickup (score their engagement) > Specific email exception (Score 5) > Score 0 > all other scores",
+      "examples": [
+        "AI receptionist provides name 'John Smith' only → Score 0 (no live human, no email)",
+        "AI receptionist provides 'john@company.com' → Score 5 (email exception overrides Score 0)",
+        "Voicemail gives generic 'info@company.com' → Score 0 (generic email doesn't count)",
+        "Gatekeeper transfers but no one picks up → Score 0 (no live prospect spoke)",
+        "Gatekeeper: 'Stay on line' → Deb picks up and says 'busy, call next week' → Score 3 (Deb engaged, NOT 0)"
+      ]
+    }
+  },
+  
+  "scope": {
+    "call_only": "Score this call only. Ignore historical context.",
+    "focus_subject": "Evaluate only the prospect's words, tone, and behavior."
+  },
+  
+  "output_requirements": {
+    "type": "integer",
+    "range": "0-10 inclusive",
+    "strict_format": "Return only the integer (e.g., 8). No labels, JSON, prose, or extra characters."
+  },
+  
+  "scoring_rubric": {
+    "0": {
+      "label": "Non-Evaluable or No Live Human",
+      "CRITICAL_EMPHASIS": "Score 0 is for ANY call where NO live human prospect engaged beyond automated responses or greetings",
+      
+      "rules": [
+        "Voicemail box reached (any automated greeting without direct contact info)",
+        "IVR/phone tree only (press 1, press 2, automated menu)",
+        "Hold music with no prospect pickup",
+        "AI receptionist with NO live human interaction",
+        "Voicemail screening: 'I'll see if available' + 'stay on line' + NO pickup",
+        "'Record your name' + agent records + NO live prospect speaks",
+        "'Please hold' or 'stay on the line' + call ends or silence",
+        "Gatekeeper screens but NO decision-maker ever speaks",
+        "Wrong number, accidental pickup, immediate disconnect",
+        "Call duration < 15 seconds with no substance"
+      ],
+      
+      "SPECIFIC_PATTERNS_THAT_ARE_ZERO": {
+        "pattern_1": "USER: 'I'll see if [person] is available' → 'Stay on the line' → No one picks up = 0",
+        "pattern_2": "USER: 'Please hold' → Hold music or silence → No prospect = 0",
+        "pattern_3": "USER: 'Record your name' → Agent records → No prospect speaks = 0",
+        "pattern_4": "AI: 'I'm an AI receptionist' → Takes message → No human = 0"
+      },
+      
+      "NOT_SCORE_0": "If after 'stay on the line', a LIVE PERSON (not gatekeeper) actually speaks and engages, then score their behavior (not 0)",
+
+      "NOT_SCORE_0_IF_CONVERSATION_THEN_VOICEMAIL": {
+        "rule": "If live person had a SUBSTANTIVE EXCHANGE (not just screening) then transferred to voicemail = Score 3 (not 0)",
+        "substantive_exchange_means": [
+          "Answered agent's questions",
+          "Explained they're not the right person",
+          "Had back-and-forth dialogue (2+ exchanges)",
+          "Provided context before voicemail transfer"
+        ],
+        "examples_score_3": [
+          "USER: 'I'm not in charge of that. I can transfer you to their voicemail' = 3 (had conversation first)",
+          "AGENT: 'Who handles payroll?' USER: 'That's Mary, let me send you to her voicemail' = 3 (exchange happened)"
+        ],
+        "STILL_SCORE_0_screening_only": [
+          "USER: 'Stay on the line' → voicemail = 0 (pure screening, no exchange)",
+          "USER: 'I'll see if available' → voicemail = 0 (screening, no conversation)",
+          "USER: 'Please hold' → voicemail = 0 (no dialogue)",
+          "Direct voicemail (no human) = 0"
+        ],
+        "key_test": "Was there actual dialogue/exchange before voicemail? YES = 3, NO = 0"
+      }
+    },
+    
+    "1": {
+      "label": "Hostile or Angry",
+      "CRITICAL_EMPHASIS": "Includes mid-sentence hangups, fake emails, and intentional time wasting",
+      
+      "MID_SENTENCE_HANGUP_DETECTION": {
+        "rule": "Hangup is Score 1 ONLY if it appears HOSTILE or INTENTIONAL interruption",
+        "how_to_detect": "Look for agent's sentence that ends with '...' or incomplete thought AND hostile context",
+        "hostile_context_indicators": [
+          "Prospect was dismissive or irritated before hangup",
+          "Prospect said 'don't call' or 'not interested' right before",
+          "Hangup happens during prospect's angry statement",
+          "No polite exchange beforehand"
+        ],
+        "NOT_hostile_hangup": [
+          "Prospect said 'call back later' or 'busy' before disconnect",
+          "Prospect was polite but needed to go",
+          "Call just ends awkwardly but no hostility shown",
+          "Prospect said 'call tomorrow' or 'I'm working' before disconnect = Score 3 (timing issue, not hostile)"
+        ],
+        "examples_score_1": [
+          "USER: 'Stop calling!' AGENT: 'I'm just...' [ends] = 1 (hostile)",
+          "USER: 'Not interested.' AGENT: 'But we...' [ends] = 1 (dismissive interruption)"
+        ],
+        "examples_NOT_score_1": [
+          "USER: 'Call tomorrow, I'm busy' AGENT: 'I completely...' [ends] = 3 (polite exit, timing issue)",
+          "USER: 'Can't talk now' AGENT: 'Just one...' [ends] = 3 (resistant but not hostile)"
+        ]
+      },
+      
+      "rules": [
+        "Profanity, insults, threats, mocking, yelling",
+        "Aggressive 'never call again' with hostile tone",
+        "Hangs up WHILE agent is speaking WITH HOSTILE CONTEXT (dismissive, angry, rude)",
+        "Transcript ends abruptly during agent's incomplete sentence WITH HOSTILE INTENT",
+        "Hangs up during hostile statement",
+        "Intentionally wasting time (changes topic 2+ times, nonsensical responses)",
+        "Fake/profane email addresses (contains insults, profanity, mocking words)",
+        "Gibberish responses throughout call ('I'm a potato', 'Yes. Seven one. Eighty three.')",
+        "Obviously trolling or mocking the agent"
+      ],
+
+      "SCRIPTED_TIME_WASTING_PATTERN": {
+        "rule": "Overly formal/scripted responses + collects agent info + provides ZERO actionable information = Score 1 (time wasting, NOT Score 3)",
+        "detection_pattern": [
+          "Uses repetitive formal phrases ('Who do I have the pleasure', 'It's a great day at [Company]')",
+          "Takes ALL agent contact information",
+          "Says 'I don't have specific contact details' or 'I don't have access to'",
+          "Promises 'I'll make a note' or 'someone will call you back'",
+          "Provides NO name, NO email, NO direct contact"
+        ],
+        "rationale": "This behavior intentionally wastes agent's time by creating illusion of helpfulness while delivering zero actionable information",
+        "priority": "This rule OVERRIDES Score 3 gatekeeper rules when overly scripted language is detected",
+        "examples_score_1": [
+          "'It's a great day at [Company]' + 'Who do I have the pleasure' (repeated) + takes agent info + 'I don't have specific contact details' = 1",
+          "Overly formal receptionist takes full agent details + 'I'll make a note' + gives nothing = 1"
+        ]
+      },
+      
+      "FAKE_EMAIL_DETECTION": {
+        "patterns": [
+          "Email contains profanity or insults",
+          "Obviously fake emails (screw.you@, fake@, troll@, etc.)",
+          "Unrealistic data combined with fake email (3200 employees + fake email = troll)"
+        ]
+      },
+
+      "ABUSE_WITH_INFO_RULE": {
+          "location": "Add inside scoring_rubric → '1' section",
+          "rule": "If prospect uses abusive or vulgar language during the call, apply this two-step test",
+          
+          "STEP_1_CHECK_INFO_QUALITY": {
+            "question": "Did the prospect provide real, actionable information despite the abuse?",
+            "what_counts_as_real_info": [
+              "Real email address (not profane/fake)",
+              "Real company information",
+              "Real current state (EHR, tools, processes)",
+              "Real qualifying details (providers, budget, timeline)",
+              "Confirmed demo or callback time"
+            ]
+          },
+          
+          "STEP_2_APPLY_SCORE": {
+            "if_real_info_provided": "IGNORE the abuse completely. Score normally per all other rules.",
+            "if_no_real_info_OR_fake_info": "Score 1 (troll/time waster)",
+            "if_email_is_fake_or_profane": "Score 1 regardless of other info"
+          },
+          
+        "examples": [
+            "Prospect says 'Your penis' but gives real EHR + real email + books demo = Score normally (ignore abuse)",
+            "Prospect curses once but confirms company + role + specific time = Score normally (ignore abuse)",
+            "Prospect abuses throughout + gives fake email + nonsensical answers = Score 1",
+            "Prospect abuses + gives NO useful info at all = Score 1"
+          ],
+          
+          "key_test": "Is the info real and actionable? YES = ignore abuse, score normally. NO = Score 1."
+      }
+
+    },
+    
+    "2": {
+      "label": "Actively Dismissive",
+      "CRITICAL_NOTE": "Rejection of the OFFER, not timing. 'Not interested' ≠ 'Can't talk'",
+      
+      "rules": [
+        "Clear rejection: 'not interested,' 'we're all set,' 'we're good'",
+        "Calm 'don't call again' / 'remove me' / DNC request",
+        "'Email me' used purely to exit with zero info",
+        "Says rejection THEN hangs up (completes sentence)",
+        "'We use [system]' mentioned ONLY to justify rejection (e.g., 'We use Square, we're all set')"
+      ],
+      
+      "NOT_SCORE_2": {
+        "timing_issues_are_score_3": [
+          "'Can't talk right now' = Score 3 (not 2)",
+          "'Busy right now' = Score 3 (not 2)",
+          "'Bad timing' = Score 3 (not 2)"
+        ],
+        "rejection_is_score_2": [
+          "'Not interested' = Score 2",
+          "'We're all set' = Score 2",
+          "'Don't need it' = Score 2"
+        ]
+      },
+      
+      "CURRENT_STATE_IN_REJECTION_CONTEXT": {
+        "rule": "If prospect mentions current state BUT uses it to dismiss you, score as 2 (not 7)",
+        "example": "'We're all set. We use Square.' = Score 2 (dismissive, not interested)",
+        "contrast": "'We use Square. How much is yours?' = Score 7 (interested)"
+      }
+    },
+    
+    "3": {
+      "label": "Resistant",
+      "CRITICAL_NOTE": "'Can't talk' is Score 3 (timing issue), NOT Score 2 (rejection)",
+      
+      "GATEKEEPER_COLLECTS_INFO_GIVES_NOTHING": {
+        "rule": "If gatekeeper takes ALL agent's information BUT provides ZERO prospect information = Score 3 (NOT 5)",
+        "EXCEPTION": "If gatekeeper uses OVERLY SCRIPTED language (see Score 1 SCRIPTED_TIME_WASTING_PATTERN) = Score 1 (NOT 3)",
+        "pattern": "Gatekeeper asks for agent's name/phone/details + says 'I'll have someone contact you' or 'I'll pass this along' + gives NO name, NO email, NO direct contact",
+        "key_test": "Did gatekeeper provide ANY actionable prospect information? If NO = Score 3",
+        "examples_score_3": [
+          "Gatekeeper: 'I'll have our team contact you' (takes agent info, gives nothing) = 3",
+          "Gatekeeper: 'I'll have a specialist reach out' (collects agent details, provides zero prospect info) = 3",
+          "Gatekeeper: 'I'll make sure our team gets your message' (takes all info, gives no name/contact) = 3",
+          "Gatekeeper: 'Someone will get back to you' (collected agent info, provided nothing) = 3"
+        ],
+        "contrast_with_score_5": "Score 5 requires actual name OR contact provided. Pure deflection with zero prospect info = Score 3"
+      },
+      
+      "AWKWARD_CALL_ENDINGS": {
+        "rule": "If prospect said 'call back' or 'busy' and call ends awkwardly = Score 3 (not 1)",
+        "rationale": "Polite timing issue, not hostile interruption",
+        "examples": [
+          "'Call tomorrow, I'm working' → call ends during agent response = 3",
+          "'Too busy right now' → call disconnects = 3",
+          "'Can't talk now' → abrupt end = 3",
+          "'Call me tomorrow please, I'm working on project' → ends mid-agent-sentence = 3 (polite context)"
+        ]
+      },
+      
+      "NOT_DECISION_MAKER_NO_REFERRAL": {
+        "rule": "If prospect says 'I'm not the decision maker' AND provides NO decision-maker name or contact = Score 3",
+        "patterns": [
+          "'I'm not the one who makes decisions' + no referral given = 3",
+          "'I would have to find out and get back to you' (gives nothing) = 3",
+          "'I need to check who handles that' (provides no name/contact) = 3",
+          "Explains they're not decision-maker + takes agent info + gives ZERO prospect info = 3"
+        ],
+        "key_test": "Did they actually PROVIDE a name or contact? If NO = Score 3. If YES (even just name) = Score 5.",
+        "examples": [
+          "'I'm not the decision maker. I'll find out and get back to you' = 3 (nothing provided)",
+          "'Not me, talk to John' (gives name) = 5 (name provided)",
+          "'I'm not in charge. Email sarah@company.com' = 6 (name + contact)"
+        ]
+      },
+
+      "rules": [
+        "Polite but closed: 'can't talk,' 'busy,' 'thanks, bye'",
+        "Very short responses (< 20 words total)",
+        "Call ends awkwardly after 'call back later' or 'busy' = 3 (not 1)",
+        "'Not the right person' + ends call without referral",
+        "'I'm not the decision maker' + provides NO name or contact info = 3",
+        "Name provided BUT contact is 'same number' / 'we route calls' / no direct line = 3 (NOT 5)",
+        "'I'll find out and get back to you' but gives NOTHING = 3",
+        "Gatekeeper blocks and shows NO interest in helping",
+        "Gatekeeper says 'I don't have a direct line I could give you'",
+        "Takes agent's info but provides ZERO prospect information",
+        "'Can't talk right now' + immediate exit (timing issue, not rejection)",
+        "'Call back tomorrow' or 'Call me tomorrow' used as POLITE EXIT with NO engagement (no questions, no info, just trying to end call)",
+        "Busy + suggests callback but showed ZERO engagement or interest signals",
+        "Spoke with live person who had exchange (2+ turns) then transferred to voicemail",
+        "Name provided BUT contact is 'same number' / 'we route calls' / no direct line = 3 (NOT 5)"
+      ],
+
+      "POLITE_EXIT_CALLBACK": {
+        "rule": "If prospect is busy and says 'call tomorrow' BUT showed NO engagement = Score 3 (not 5)",
+        "pattern": "Prospect says they're busy/can't talk + suggests callback to exit politely",
+        "key_test": "Did they engage AT ALL? (ask question, provide info, show interest?)",
+        "if_NO_engagement": "Score 3 (polite brush-off)",
+        "if_YES_engagement": "Score 5 (genuine callback request)",
+        "examples_score_3": [
+          "'I'm busy right now. Call me tomorrow?' = 3 (just trying to exit)",
+          "'Can't talk. Try tomorrow' = 3 (polite brush-off)",
+          "'Under the gun. Call back tomorrow?' = 3 (no engagement)"
+        ],
+        "examples_score_5": [
+          "'Sounds interesting. Can you call tomorrow?' = 5 (showed interest)",
+          "'Let me think about it. Call tomorrow' = 5 (acknowledged offer)"
+        ]
+      },
+
+      "NAME_WITH_GENERIC_OFFICE_NUMBER": {
+        "rule": "If name provided BUT contact is generic office number/main line = Score 3 (NOT 5)",
+        "pattern": "Gatekeeper provides decision-maker name + 'office number' or 'main line' or 'same number you called'",
+        "rationale": "Generic routing number means another screening call - no direct access gained",
+        "examples_score_3": [
+          "'Talk to Amy. Call the office number' = 3 (will be screened again)",
+          "'Ask for John. Same number' = 3 (generic routing)",
+          "'Contact Sarah at this number' (main line) = 3 (no direct line)"
+        ],
+        "examples_score_5": [
+          "'Talk to Amy' (name only, no contact mentioned) = 5"
+        ],
+        "key_distinction": "Score 5 = name without contact. Score 3 = name with generic/routing number that requires re-screening."
+      },
+
+      "EMPLOYEE_NOT_DECISION_MAKER_TO_VOICEMAIL": {
+        "rule": "Score 3 if person explicitly states they are NOT the decision-maker/not in charge, THEN sends to voicemail",
+        "required_pattern": "Person must say 'I'm not in charge' or 'I don't handle that' or similar self-identification",
+        "examples_score_3_only": [
+          "'I'm not in charge of that. I can transfer to voicemail' = 3",
+          "'I don't handle payroll. Let me send you to voicemail' = 3"
+        ],
+        "NOT_this_rule_screening_stays_0": [
+          "'I'll see if available' = 0 (screening)",
+          "'Stay on the line' = 0 (screening)",
+          "'Let me connect you' = 0 (screening)",
+          "AI receptionist = 0 (screening)",
+          "'They're not available' = 0 (screening result)"
+        ]
+      },
+      
+      "CANT_TALK_VS_NOT_INTERESTED": {
+        "score_3": "'Can't talk right now' / 'Busy' / 'Bad timing' = Score 3 (resistant, timing issue)",
+        "score_2": "'Not interested' / 'We're all set' / 'We're good' = Score 2 (dismissive, active rejection)",
+        "key_difference": "Score 3 = timing issue. Score 2 = don't want the product/service.",
+        "examples_score_3": [
+          "'Can't talk right now, bye' = 3",
+          "'Too busy right now' = 3",
+          "'Not a good time' = 3"
+        ],
+        "examples_score_2": [
+          "'Not interested, bye' = 2",
+          "'We're all set, thanks' = 2"
+        ]
+      },
+      
+      "GATEKEEPER_BLOCKING_PATTERN": {
+        "phrases": [
+          "'I would not be the right person'",
+          "'I don't have a direct line'",
+          "'I can take your message' (but gives nothing)"
+        ],
+        "action": "Takes AGENT'S name/number but gives NO decision-maker name or contact",
+        "score": 3
+      }
+    },
+    
+    "4": {
+      "label": "Reluctant / Polite Exit",
+      "CRITICAL_NOTE": "Includes failed transfers WHERE NO NAME WAS GIVEN",
+      
+      "rules": [
+        "Generic deflection: 'send me an email,' 'call back later'",
+        "Vague callback: 'call back sometime' (no timeframe)",
+        "'Talk to HR' without name or contact",
+        "Gatekeeper mentions name but call doesn't connect",
+        "Promised transfer but FAILED and NO decision-maker name given",
+        "Generic email address (info@, contact@, admin@) without decision-maker contact"
+      ],
+      
+      "FAILED_TRANSFER_WITHOUT_NAME": {
+        "rule": "If transfer promised but FAILED and NO decision-maker name given = Score 4",
+        "pattern": "USER: 'Let me transfer you' → Hold → 'Are you still there?' → No response",
+        "score": 4,
+        "reason": "Pure deflection - promised help but provided nothing",
+        "key_check": "Did we get a NAME? If NO = Score 4. If YES = Score 5."
+      },
+      
+      "CONTRAST_WITH_SCORE_5": {
+        "score_4": "Transfer fails, NO name given = 4",
+        "score_5": "Transfer fails, BUT got name = 5"
+      }
+    },
+    
+    "5": {
+      "label": "Neutral / Functional",
+      "CRITICAL_NOTE": "Name OR contact (not both). Vague callbacks. MUST ACTUALLY PROVIDE INFORMATION (not promise to find out).",
+
+      "REQUIRES_ACTUAL_INFO": {
+        "rule": "Score 5 requires ACTUAL name or contact provided, not just a promise",
+        "score_5_YES": [
+          "'Talk to John' (name given) = 5",
+          "'Call extension 205' (contact given) = 5",
+          "'Email info@company.com' (contact given) = 5"
+        ],
+        "score_5_NO_these_are_3": [
+          "'I'll find out who handles that' (nothing given) = 3",
+          "'I would have to get back to you' (nothing given) = 3",
+          "'I need to check' (nothing given) = 3"
+        ],
+        "key_distinction": "Actual info provided = 5. Promise to find out later = 3."
+      },
+
+      "EXCEPTION_AI_RECEPTIONIST": {
+        "rule": "If an AI receptionist/virtual assistant provides a name but NO contact info AND no live human speaks = Score 0 (not 5)",
+        "rule_exception": "If AI receptionist provides SPECIFIC, DIRECT email (name@company.com) = Score 5 even without live human",
+        "rationale": "AI-provided names alone without human engagement are non-evaluable, BUT specific email is actionable",
+        "detection": "Look for 'AI receptionist', 'virtual assistant', 'automated assistant' in opening",
+        "action_if_name_only": "AI + name only + no live human = Score 0",
+        "action_if_email_provided": "AI + specific email + no live human = Score 5 (email exception applies)"
+      },
+      
+      "rules": [
+        "Answers questions when asked but shows no initiative",
+        "No meaningful questions from prospect",
+        "Provides name OR contact method (not both) - MUST BE FROM LIVE HUMAN (includes name + 'same number' or 'call this number')",
+        "Name provided with phone number instruction (even if same number as called) = 5",
+        "Vague callback: 'tomorrow afternoon' without SPECIFIC TIME",
+        "Voicemail WITH direct email or phone number",
+        "Receptionist gives decision-maker name WITHOUT contact info",
+        "'Ask for [Name]' without providing phone/email",
+        "Failed transfer but got decision-maker NAME (even if no contact) = 5"
+      ],
+
+      "NAME_WITH_PHONE_INSTRUCTION": {
+        "rule": "If gatekeeper provides decision-maker name + phone instruction (even 'same number') = Score 5",
+        "examples_score_5": [
+          "'Talk to Joe. Call this number' = 5",
+          "'Ask for Joe. Same number' = 5",
+          "'Contact Joe at this number' = 5"
+        ],
+        "rationale": "We captured name and have a number to reach them, even if requires re-screening"
+      },
+
+      "NEAR_TERM_CALLBACK_REQUIRES_ENGAGEMENT": {
+        "rule": "Score 5 callbacks require prospect showed SOME engagement beyond just being busy",
+        "MINIMUM_ENGAGEMENT_DEFINED": {
+          "must_have_at_least_one": [
+            "Answered at least ONE question about their business/current state",
+            "Asked at least ONE question about the offer",
+            "Acknowledged what the offer is specifically (not just 'I can go over it')"
+          ],
+          "NOT_engagement": [
+            "'I can go over it tomorrow' = NOT engagement (just setting time)",
+            "'Call me back and we can discuss' = NOT engagement (generic)",
+            "'I'm busy, call tomorrow' = NOT engagement (polite exit)"
+          ]
+        },
+        "examples_score_5": [
+          "Prospect answered 'What are you using?' THEN said 'call tomorrow' = 5",
+          "Prospect asked 'What do you offer?' THEN requested callback = 5"
+        ],
+        "examples_score_3": [
+          "Prospect just said 'I'm busy, call tomorrow' with ZERO engagement = 3",
+          "Immediate exit with callback suggestion, no questions answered = 3",
+          "'Call me back tomorrow and I can go over it' but answered nothing = 3"
+        ]
+      },
+
+      "ANSWERING_QUESTIONS_ONLY": {
+        "rule": "If prospect ANSWERS agent's questions about current state (doesn't volunteer it) = Score 5",
+        "REQUIRES_MINIMAL_ENGAGEMENT": "Score 5 requires prospect answered AT LEAST ONE question or provided some info. Just saying 'call tomorrow' with ZERO engagement = Score 3",
+        "pattern": "Agent asks → User provides answer → No proactive disclosure",
+        "examples_score_5": [
+          "Agent: 'What are you using?' User: 'QuickBooks' (answered when asked) = 5",
+          "Agent: 'Do you have a CPA?' User: 'No' (just responding) = 5"
+        ],
+        "examples_score_3_NOT_5": [
+          "'I'm busy, call tomorrow' (NO questions answered, NO info given) = 3",
+          "'Can't talk now, try later' (pure polite exit) = 3"
+        ],
+        "key_distinction": "Answering questions = Score 5. Just callback request with zero engagement = Score 3."
+      },
+      
+      "FAILED_TRANSFER_WITH_NAME": {
+        "rule": "If transfer fails BUT we captured decision-maker NAME = Score 5 (not 4)",
+        "rationale": "We got actionable info (the name), even though transfer failed",
+        "example": "USER: 'That's Jesse, let me transfer.' [holds] [fails] = Score 5 (we know Jesse's name)",
+        "contrast": "USER: 'Let me transfer you to HR.' [holds] [fails, never gave name] = Score 4 (pure deflection)",
+        "key_distinction": "Score 5 = NAME captured. Score 4 = NO name captured."
+      },
+      
+      "VAGUE_TIME_EXAMPLES": {
+        "score_5": [
+          "'Tomorrow afternoon' (no specific hour)",
+          "'Call back morning' (no specific time)",
+          "'End of week' (no specific day/time)"
+        ],
+        "NOT_score_5": "'Tomorrow at 2 PM' = specific time (could be 9 if email captured)"
+      },
+      
+      "NAME_WITHOUT_CONTACT": {
+        "examples": [
+          "'Talk to Jesse' (no phone/email) = 5",
+          "'Ask for Mary' (no direct contact) = 5",
+          "Transfer fails but got name 'John' = 5"
+        ]
+      }
+    },
+    
+    "6": {
+      "label": "Mild Interest",
+      "CRITICAL_NOTE": "Requires name AND contact (both), OR one single question",
+      
+      "rules": [
+        "One light/high-level question with no follow-up or disclosure",
+        "Tentative openness: 'maybe later,' 'could be relevant'",
+        "Name AND direct contact provided (email/phone/extension) from LIVE person",
+        "'Send pricing to [specific email]' (contact captured)",
+        "Successful transfer to decision-maker who engages",
+        "Single question but no current state disclosed"
+      ],
+      
+      "NAME_AND_CONTACT_REQUIREMENT": {
+        "must_have_both": "Name AND (email OR phone OR extension)",
+        "examples_yes": [
+          "'John at john@company.com' = 6",
+          "'Mary at extension 205' = 6",
+          "'Jesse at 555-1234' = 6"
+        ],
+        "examples_no": [
+          "'Talk to John' (no contact) = 5",
+          "'Email info@company.com' (no name) = 5"
+        ]
+      },
+      
+      "SINGLE_QUESTION_RULE": "One question alone with no follow-up = 6 (not 7)"
+    },
+    
+    "7": {
+      "label": "Interested",
+      "CRITICAL_NOTE": "Requires meaningful exploration, not just one question. Current state must be VOLUNTEERED, not just answered.",
+  
+      "rules": [
+        "VOLUNTEERS current state (NOT just answering when asked): 'We use ADP,' 'Doing it manually,' 'CPA handles it'",
+        "Asks substantive question + provides additional context",
+        "Mentions competitor by name in exploratory way",
+        "Describes pain point or requirement",
+        "Multiple questions OR one question + VOLUNTEERED current state disclosure"
+      ],
+
+      "CRITICAL_DISTINCTION_VOLUNTEERED_VS_ANSWERED": {
+        "score_7_REQUIRES": "Prospect brings up current state WITHOUT being asked",
+        "score_5_when": "Agent asks 'What are you using?' → Prospect answers 'QuickBooks' = Score 5 (NOT 7)",
+        "examples_score_7": [
+          "'We use QuickBooks. How much is yours?' (volunteered) = 7",
+          "'I'm doing it manually, what would this cost?' (volunteered) = 7"
+        ],
+        "examples_score_5_NOT_7": [
+          "Agent: 'What are you using?' User: 'QuickBooks' (just answering) = 5",
+          "Agent: 'Do you have a CPA?' User: 'No' (just answering) = 5"
+        ]
+      },
+      
+      "CURRENT_STATE_MUST_BE_EXPLORATORY": {
+        "score_7": "'We use QuickBooks. How much is yours?' = interested/exploring",
+        "score_2": "'We use Square, we're all set' = dismissive rejection"
+      },
+
+      "CURRENT_STATE_MUST_BE_VOLUNTEERED": {
+        "rule": "Score 7 requires prospect VOLUNTEERS current state or asks substantive question WITH additional context",
+        "score_7_YES": [
+          "'We use QuickBooks. How much is yours?' (volunteered + question) = 7",
+          "'I'm doing it manually, what would this cost?' (volunteered + question) = 7"
+        ],
+        "score_7_NO_these_are_5": [
+          "Agent asks → User answers 'QuickBooks' (just responding) = 5",
+          "'What do you offer?' (generic question, no volunteered info) = 5"
+        ],
+        "key_distinction": "Volunteered disclosure + substantive engagement = 7. Just answering questions = 5."
+      }
+    },
+    
+    "8": {
+      "label": "Engaged",
+      "CRITICAL_NOTE": "'Tell me more' or 'I'm interested' with questions = clear engagement signal",
+      
+      "rules": [
+        "Multiple meaningful questions or deep-dive conversation",
+        "Volunteers context: current tools, pain points, constraints, volume",
+        "Soft next-step intent: 'Maybe next week,' 'I'd like a demo,' 'What's the next step?'",
+        "'Tell me more' + asks follow-up questions",
+        "'I'm interested, tell me more' = sustained engagement",
+        "Shows sustained interest beyond initial curiosity",
+        "Three or more questions in total",
+        "Asks about multiple aspects (cost, integration, features)"
+      ],
+      
+      "TELL_ME_MORE_SIGNAL": {
+        "rule": "If prospect says 'tell me more' after asking questions = Score 8 (not 7)",
+        "pattern": "Multiple questions + 'tell me more' or 'interesting, tell me more' = clear engagement",
+        "example": "USER: 'We use ADP. How much? Does it integrate? What about taxes?' + 'Tell me more' = Score 8"
+      }
+    },
+    
+    "9": {
+      "label": "Highly Engaged",
+      "CRITICAL_NOTE": "Requires SPECIFIC time AND contact captured. Missing any field = NOT 10.",
+      
+      "rules": [
+        "Accepts or proposes SPECIFIC time (e.g., 'Friday at 2 PM', 'Tomorrow at 10 AM')",
+        "Provides contact info: email address OR phone number captured",
+        "Asks detailed evaluation questions (pricing details, implementation, timeline)",
+        "Requests materials for internal review",
+        "Concrete next step BUT missing one or more of the 5 qualification fields"
+      ],
+      
+      "SPECIFIC_TIME_REQUIREMENT": {
+        "score_9_requires": "SPECIFIC time like 'Friday at 2 PM' or 'Tomorrow at 10 AM'",
+        "NOT_score_9": [
+          "'Tomorrow afternoon' (vague) = 5",
+          "'Next week' (vague) = 5",
+          "'Friday' without time = 5"
+        ]
+      },
+      
+      "MISSING_FIELDS_CHECK": {
+        "if_missing_any": "If missing company, role, or current state = Score 9 (not 10)",
+        "all_5_required_for_10": "Time, Email, Company, Role, Current State"
+      }
+    },
+    
+    "10": {
+      "label": "Champion / Committed",
+      "ABSOLUTE_REQUIREMENT": "ALL 5 FIELDS BELOW MUST BE EXPLICITLY PRESENT. IF EVEN ONE IS MISSING, SCORE IS 9.",
+      
+      "REQUIRED_FIELDS_CHECKLIST": {
+        "field_1_time": {
+          "requirement": "Specific date AND time confirmed",
+          "examples_YES": ["Friday at 10 AM", "Tomorrow at 2 PM", "Monday at 9 AM"],
+          "examples_NO": ["Friday (no time)", "Tomorrow afternoon", "Next week"]
+        },
+        "field_2_email": {
+          "requirement": "Email address explicitly captured",
+          "examples_YES": ["john@acme.com", "sarah@company.com"],
+          "examples_NO": ["Contact me", "I'll send it", "You have my info"],
+          "reject_fake": "Fake/profane emails do NOT count (score as 1 instead)"
+        },
+        "field_3_company": {
+          "requirement": "Company name explicitly confirmed",
+          "examples_YES": ["Acme Corp", "ABC Company", "Smith Industries"],
+          "examples_NO": ["Us", "We", "My company"]
+        },
+        "field_4_decision_maker": {
+          "requirement": "Decision-maker status OR title/role confirmed",
+          "examples_YES": ["I'm the owner", "I handle payroll", "I'm the CFO"],
+          "examples_NO": ["Yes", "Sure", "Interested"]
+        },
+        "field_5_current_state": {
+          "requirement": "Current payroll method explicitly known",
+          "examples_YES": ["We use QuickBooks", "Manual/checkbook", "CPA handles it", "ADP"],
+          "examples_NO": ["Need something", "Looking for solutions"]
+        }
+      },
+      
+      "VERIFICATION_CHECKLIST": [
+        "Step 1: Count how many of the 5 fields are EXPLICITLY present",
+        "Step 2: If count = 5, assign Score 10",
+        "Step 3: If count = 4 or less, assign Score 9 or lower",
+        "Step 4: Do NOT assume fields. If not explicitly stated, field = missing"
+      ],
+      
+      "COMMON_MISTAKES": [
+        "Do NOT assume email if not stated",
+        "Do NOT assume role if not confirmed",
+        "'Friday' without time = field 1 missing",
+        "Vague time like 'afternoon' = field 1 missing"
+      ]
+    }
+  },
+  
+  "GPT_MODEL_SPECIFIC_INSTRUCTIONS": {
+    "you_are_using_gpt": "These instructions prevent common GPT scoring mistakes",
+    
+    "common_mistake_1": {
+      "mistake": "Scoring voicemail screening as 5 instead of 0",
+      "fix": "If 'stay on the line' or 'I'll see if available' and NO live prospect speaks = 0"
+    },
+    
+    "common_mistake_2": {
+      "mistake": "Missing mid-sentence hangups",
+      "fix": "If transcript ends during agent's incomplete sentence = 1"
+    },
+    
+    "common_mistake_3": {
+      "mistake": "Scoring failed transfers too high",
+      "fix": "If 'I'll transfer you' but no one picks up = 4"
+    },
+    
+    "common_mistake_4": {
+      "mistake": "Inflating vague callbacks to 9",
+      "fix": "'Tomorrow afternoon' without specific time + no email = 5 (not 9)"
+    },
+    
+    "common_mistake_5": {
+      "mistake": "Not detecting fake emails",
+      "fix": "If email contains profanity or responses are gibberish = 1"
+    },
+    
+    "common_mistake_6": {
+      "mistake": "Giving Score 6 for name only",
+      "fix": "Name only (no contact) = 5. Score 6 requires name AND contact."
+    },
+    
+    "verification_before_scoring": [
+      "1. Is there a live human prospect? (If NO → 0)",
+      "2. Did they hang up mid-sentence? (If YES → 1)",
+      "3. Did transfer fail? (If YES → likely 4)",
+      "4. Is callback vague without contact? (If YES → likely 5)",
+      "5. For Score 9: Is time SPECIFIC + email captured?",
+      "6. For Score 10: Are ALL 5 fields present?"
+    ]
+  },
+  
+  "anti_inflation_rules": [
+    "Politeness without substance = ≤5",
+    "Generic 'send me info' = 4",
+    "Vague 'call back later' = 4",
+    "Near-term callback (2-7 days) without specific time = 5",
+    "One single question = 6 (not 7)",
+    "Name only = 5 (not 6)",
+    "Name + contact from LIVE person = 6",
+    "When in doubt, choose lower score",
+    "CRITICAL: 'Stay on the line' with no pickup = 0 (NOT 5)",
+    "CRITICAL: 'I'll see if available' with no prospect = 0 (NOT 5)",
+    "CRITICAL: 'Tomorrow afternoon' (vague) + no email = 5 (NOT 9)",
+    "CRITICAL: Fake email or gibberish = 1 (NOT 10)",
+    "CRITICAL: Score 10 requires ALL 5 fields explicitly present",
+    "If transcript ends during 'stay on line' or 'please hold' = likely 0",
+    "If gatekeeper says 'I don't have a direct line' = likely 3",
+    "'We're all set' + current state = 2 (rejection, not interest)",
+    "CRITICAL: Failed transfer WITH name = 5, WITHOUT name = 4",
+    "CRITICAL: Multiple questions (3+) + 'tell me more' = 8 (not 7)",
+    "CRITICAL: 'Can't talk' / 'Busy' = 3 (timing issue), NOT 2 (rejection)"
+  ],
+  
+  "final_instruction": "After analyzing the transcript silently using ALL the rules above, return exactly one integer from 0 to 10. Do not include any explanation, notes, or formatting. Return only the number."
+}

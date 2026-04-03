@@ -3,7 +3,7 @@ Fetches call transcripts from Retell AI API (DEV key first, PROD fallback),
 then scores each transcript for Engagement (0-10), Data Collection (0-9),
 and classifies the prospect as OWNER or GATEKEEPER.
 
-Input  : call_ids.csv        — CSV with a single column: call_id
+Input  : call_id.csv        — CSV with a single column: call_id
 Output : scored_transcripts.csv — call_id, transcript, engagement_score, data_collection_score, stakeholder
 """
 
@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 load_dotenv()
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-INPUT_FILE      = "call_ids.csv"
+INPUT_FILE      = "call_id.csv"
 OUTPUT_FILE     = "scored_transcripts.csv"
 CALL_ID_COL     = "call_id"
 
@@ -29,7 +29,7 @@ RETELL_DELAY    = 0.3    # seconds between Retell API calls
 
 OPENROUTER_URL  = "https://openrouter.ai/api/v1/chat/completions"
 MODEL           = "openai/gpt-5-mini"
-MAX_WORKERS     = 5      # parallel threads for scoring
+MAX_WORKERS     = 10      # parallel threads for scoring
 
 
 # ── Load API keys ─────────────────────────────────────────────────────────────
@@ -213,8 +213,12 @@ def run():
         raise FileNotFoundError(f"'{INPUT_FILE}' not found. Make sure it's in the same directory.")
 
     with open(input_path, newline="", encoding="utf-8-sig") as f:
-        reader   = csv.DictReader(f)
-        call_ids = [row[CALL_ID_COL].strip() for row in reader if row.get(CALL_ID_COL, "").strip()]
+        reader        = csv.DictReader(f)
+        original_cols = reader.fieldnames or []
+        rows          = [row for row in reader if row.get(CALL_ID_COL, "").strip()]
+
+    call_ids = [row[CALL_ID_COL].strip() for row in rows]
+    row_map  = {row[CALL_ID_COL].strip(): row for row in rows}   # call_id → original row
 
     total = len(call_ids)
     print(f"✓ Loaded {total} call ID(s) from '{INPUT_FILE}'\n")
@@ -245,35 +249,37 @@ def run():
 
         done = 0
         for future in as_completed(futures):
-            call_id, result = future.result()
-            score_map[call_id] = result
+            cid, result = future.result()
+            score_map[cid] = result
             done += 1
             status = (
                 f"Engagement: {result['engagement_score']}/10  |  Data: {result['data_collection_score']}/9  |  {result['stakeholder']}"
                 if result["success"]
                 else f"FAILED — {result['error']}"
             )
-            print(f"  [{done}/{total}] {call_id} → {status}")
+            print(f"  [{done}/{total}] {cid} → {status}")
 
     # ── Step 3: Write output CSV in original order ────────────────────────────
     success = 0
     failed  = []
 
+    added_cols   = ["transcript", "engagement_score", "data_collection_score", "stakeholder"]
+    output_cols  = original_cols + added_cols
+
     with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["call_id", "transcript", "engagement_score", "data_collection_score", "stakeholder"])
+        writer = csv.DictWriter(f, fieldnames=output_cols)
         writer.writeheader()
 
         for call_id in call_ids:
             result     = score_map.get(call_id, {})
             transcript = transcript_map.get(call_id, "")
 
-            writer.writerow({
-                "call_id":               call_id,
-                "transcript":            transcript,
-                "engagement_score":      result.get("engagement_score")      if result.get("engagement_score")      is not None else "ERROR",
-                "data_collection_score": result.get("data_collection_score") if result.get("data_collection_score") is not None else "ERROR",
-                "stakeholder":      result.get("stakeholder")      if result.get("stakeholder")      is not None else "ERROR",
-            })
+            out_row = dict(row_map[call_id])   # copy all original columns
+            out_row["transcript"]            = transcript
+            out_row["engagement_score"]      = result.get("engagement_score")      if result.get("engagement_score")      is not None else "ERROR"
+            out_row["data_collection_score"] = result.get("data_collection_score") if result.get("data_collection_score") is not None else "ERROR"
+            out_row["stakeholder"]           = result.get("stakeholder")           if result.get("stakeholder")           is not None else "ERROR"
+            writer.writerow(out_row)
 
             if result.get("success"):
                 success += 1
