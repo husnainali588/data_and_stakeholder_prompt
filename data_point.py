@@ -1,9 +1,10 @@
 """
 Fetches call transcripts from Retell AI API (DEV key first, PROD fallback),
-then scores each transcript for Engagement (0-10) and Data Collection (0-9).
+then scores each transcript for Engagement (0-10), Data Collection (0-9),
+and classifies the prospect as OWNER or GATEKEEPER.
 
 Input  : call_ids.csv        — CSV with a single column: call_id
-Output : scored_transcripts.csv — call_id, transcript, engagement_score, data_collection_score, scoring_error
+Output : scored_transcripts.csv — call_id, transcript, engagement_score, data_collection_score, stakeholder
 """
 
 import csv
@@ -125,27 +126,68 @@ def call_api(rubric: dict, transcript: str, score_range: int, openrouter_key: st
         return {"score": None, "success": False, "error": f"Invalid response: {score_text}"}
 
 
-def score_transcript(transcript: str, engagement_rubric: dict, data_rubric: dict, openrouter_key: str) -> dict:
-    """Score one transcript with both rubrics in parallel."""
+def call_api_classification(rubric: dict, transcript: str, openrouter_key: str) -> dict:
+    """Call the API and expect OWNER or GATEKEEPER as the response."""
+    try:
+        response = requests.post(
+            OPENROUTER_URL,
+            headers={"Authorization": f"Bearer {openrouter_key}", "Content-Type": "application/json"},
+            json={
+                "model": MODEL,
+                "messages": [
+                    {"role": "system", "content": json.dumps(rubric)},
+                    {"role": "user",   "content": f"Classify this call transcript:\n\n{transcript}"}
+                ],
+                "temperature": 0,
+            },
+            timeout=60
+        )
+    except requests.exceptions.Timeout:
+        return {"classification": None, "success": False, "error": "Request timed out"}
+    except requests.exceptions.RequestException as e:
+        return {"classification": None, "success": False, "error": f"Request failed: {str(e)}"}
+
+    if response.status_code != 200:
+        try:
+            error_detail = response.json().get("error", {})
+            error_msg = error_detail.get("message", response.text[:300]) if isinstance(error_detail, dict) else str(error_detail)
+        except Exception:
+            error_msg = response.text[:300]
+        return {"classification": None, "success": False, "error": f"API {response.status_code}: {error_msg}"}
+
+    result_text = response.json()["choices"][0]["message"]["content"].strip().upper()
+
+    if result_text in ("OWNER", "GATEKEEPER"):
+        return {"classification": result_text, "success": True}
+    else:
+        return {"classification": None, "success": False, "error": f"Invalid classification response: {result_text}"}
+
+
+def score_transcript(transcript: str, engagement_rubric: dict, data_rubric: dict, stakeholder_rubric: dict, openrouter_key: str) -> dict:
+    """Score one transcript with all three rubrics in parallel."""
     if not transcript or not transcript.strip():
         return {
             "engagement_score":      None,
             "data_collection_score": None,
+            "stakeholder":      None,
             "success": False,
             "error":   "Empty transcript"
         }
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        future_eng  = executor.submit(call_api, engagement_rubric, transcript, 10, openrouter_key)
-        future_data = executor.submit(call_api, data_rubric,       transcript,  9, openrouter_key)
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        future_eng    = executor.submit(call_api, engagement_rubric,       transcript, 10, openrouter_key)
+        future_data   = executor.submit(call_api, data_rubric,             transcript,  9, openrouter_key)
+        future_og     = executor.submit(call_api_classification, stakeholder_rubric, transcript, openrouter_key)
         eng  = future_eng.result()
         data = future_data.result()
+        og   = future_og.result()
 
     return {
         "engagement_score":      eng["score"],
         "data_collection_score": data["score"],
-        "success":               eng["success"] and data["success"],
-        "error":                 eng.get("error") or data.get("error")
+        "stakeholder":      og["classification"],
+        "success":               eng["success"] and data["success"] and og["success"],
+        "error":                 eng.get("error") or data.get("error") or og.get("error")
     }
 
 
@@ -160,8 +202,9 @@ def run():
     print("✓ API keys loaded (Retell DEV + PROD, OpenRouter)")
 
     # Load rubrics
-    engagement_rubric = load_rubric("scoring_rubric.json")
-    data_rubric       = load_rubric("data_collection_rubric.json")
+    engagement_rubric      = load_rubric("scoring_rubric.json")
+    data_rubric            = load_rubric("data_collection_rubric.json")
+    stakeholder_rubric = load_rubric("stakeholder_rubric.json")
     print("✓ Rubric files loaded")
 
     # Load call IDs
@@ -195,7 +238,7 @@ def run():
 
     def score_one(call_id):
         transcript = transcript_map.get(call_id, "")
-        return call_id, score_transcript(transcript, engagement_rubric, data_rubric, openrouter_key)
+        return call_id, score_transcript(transcript, engagement_rubric, data_rubric, stakeholder_rubric, openrouter_key)
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {executor.submit(score_one, cid): cid for cid in call_ids}
@@ -206,7 +249,7 @@ def run():
             score_map[call_id] = result
             done += 1
             status = (
-                f"Engagement: {result['engagement_score']}/10  |  Data: {result['data_collection_score']}/9"
+                f"Engagement: {result['engagement_score']}/10  |  Data: {result['data_collection_score']}/9  |  {result['stakeholder']}"
                 if result["success"]
                 else f"FAILED — {result['error']}"
             )
@@ -217,7 +260,7 @@ def run():
     failed  = []
 
     with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["call_id", "transcript", "engagement_score", "data_collection_score", "scoring_error"])
+        writer = csv.DictWriter(f, fieldnames=["call_id", "transcript", "engagement_score", "data_collection_score", "stakeholder"])
         writer.writeheader()
 
         for call_id in call_ids:
@@ -225,11 +268,11 @@ def run():
             transcript = transcript_map.get(call_id, "")
 
             writer.writerow({
-                "call_id":              call_id,
-                "transcript":           transcript,
-                "engagement_score":     result.get("engagement_score")      if result.get("engagement_score")      is not None else "ERROR",
+                "call_id":               call_id,
+                "transcript":            transcript,
+                "engagement_score":      result.get("engagement_score")      if result.get("engagement_score")      is not None else "ERROR",
                 "data_collection_score": result.get("data_collection_score") if result.get("data_collection_score") is not None else "ERROR",
-                "scoring_error":        result.get("error") or ""
+                "stakeholder":      result.get("stakeholder")      if result.get("stakeholder")      is not None else "ERROR",
             })
 
             if result.get("success"):
@@ -254,9 +297,10 @@ def manual_mode():
     print("When done, type END on a new line and press Enter:")
     print("-" * 60)
 
-    _, _, openrouter_key  = load_keys()
-    engagement_rubric     = load_rubric("scoring_rubric.json")
-    data_rubric           = load_rubric("data_collection_rubric.json")
+    _, _, openrouter_key     = load_keys()
+    engagement_rubric        = load_rubric("scoring_rubric.json")
+    data_rubric              = load_rubric("data_collection_rubric.json")
+    stakeholder_rubric  = load_rubric("stakeholder_rubric.json")
 
     lines = []
     while True:
@@ -271,18 +315,21 @@ def manual_mode():
         return
 
     print("\nScoring...")
-    result = score_transcript(transcript, engagement_rubric, data_rubric, openrouter_key)
+    result = score_transcript(transcript, engagement_rubric, data_rubric, stakeholder_rubric, openrouter_key)
 
     print("\n" + "=" * 60)
     if result["success"]:
         print(f"  Engagement Score      : {result['engagement_score']} / 10")
         print(f"  Data Collection Score : {result['data_collection_score']} / 9")
+        print(f"  Stakeholder           : {result['stakeholder']}")
     else:
         print(f"  ERROR: {result['error']}")
         if result["engagement_score"] is not None:
             print(f"  Engagement Score      : {result['engagement_score']} / 10")
         if result["data_collection_score"] is not None:
             print(f"  Data Collection Score : {result['data_collection_score']} / 9")
+        if result["stakeholder"] is not None:
+            print(f"  Stakeholder           : {result['stakeholder']}")
     print("=" * 60)
 
 

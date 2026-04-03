@@ -1,0 +1,416 @@
+{
+  "ULTRA_CRITICAL_FOR_GPT_MODELS_READ_FIRST": {
+    "MODEL_NOTE": "These instructions are optimized for GPT-5-mini to avoid common classification mistakes",
+    "MOST_IMPORTANT_RULES": [
+      "If a gatekeeper transfers the call and a NEW person (decision-maker) picks up and speaks = OWNER (classify based on who we ULTIMATELY spoke with)",
+      "If no live human ever speaks (voicemail, IVR, AI receptionist) = GATEKEEPER",
+      "If someone says 'I handle payroll/EHR/billing' even without an owner title = OWNER (functional decision-maker)",
+      "If receptionist/screener answers and does NOT successfully transfer to a decision-maker = GATEKEEPER",
+      "If prospect says 'I'm the owner' or 'This is my business' = OWNER",
+      "Practice managers, office managers, or anyone who confirms they manage the relevant function = OWNER"
+    ],
+    "CLASSIFICATION_BIAS_WARNING": "Do not default to either OWNER or GATEKEEPER. Judge case by case. If the prospect books a demo or discusses pain points without explicitly deflecting to another decision-maker, classify as OWNER."
+  },
+
+  "task": "Read the entire call transcript and classify the person we spoke with as either OWNER or GATEKEEPER. This determines whether the call reached a decision-maker or was blocked/screened by a non-decision-maker.",
+
+  "definitions": {
+    "OWNER": {
+      "description": "The person we ultimately spoke with is the decision-maker, business owner, or the person who handles/manages the relevant function (payroll, EHR, billing, HR, etc.). This includes cases where a gatekeeper transferred the call and the decision-maker picked up.",
+      "core_principle": "We classify based on WHO WE ENDED UP TALKING TO, not who answered first."
+    },
+    "GATEKEEPER": {
+      "description": "The call was answered by a receptionist, screener, assistant, AI system, voicemail, or any person who is NOT the decision-maker and did NOT successfully transfer us to one. Also includes all non-human interactions (IVR, voicemail, AI receptionist).",
+      "core_principle": "If we never spoke with someone who has decision-making authority or functional ownership, it's GATEKEEPER."
+    }
+  },
+
+  "CRITICAL_RULE_CHECK_FIRST": {
+    "instruction": "BEFORE ANYTHING ELSE: Use this THREE-STEP process to classify the call",
+
+    "STEP_1_CHECK_FOR_NO_HUMAN": {
+      "question": "Did any live human prospect speak on this call?",
+      "if_NO": "RETURN GATEKEEPER immediately",
+      "no_human_indicators": [
+        "Voicemail greeting / 'leave a message'",
+        "IVR / phone tree ('press 1', 'press 2')",
+        "AI receptionist with no live human pickup",
+        "Hold music with no pickup",
+        "'Stay on the line' with no one picking up",
+        "Automated system only",
+        "Call disconnects before any human speaks"
+      ]
+    },
+
+    "STEP_2_CHECK_FOR_TRANSFER": {
+      "question": "Did the call start with a gatekeeper/receptionist who then transferred to a different person?",
+      "if_YES_and_new_person_spoke": "Classify based on the NEW person (the one who picked up after transfer)",
+      "if_YES_but_no_one_picked_up": "RETURN GATEKEEPER (failed transfer = no decision-maker reached)",
+      "transfer_detection_phrases": [
+        "'Let me transfer you'",
+        "'I'll connect you with'",
+        "'Stay on the line'",
+        "'Please hold while I get'",
+        "'Let me see if they're available'",
+        "'I'll put you through to'"
+      ]
+    },
+
+    "STEP_3_CLASSIFY_THE_SPEAKER": {
+      "question": "Is the person we spoke with (or ended up speaking with after transfer) the decision-maker or functional handler?",
+      "if_YES": "RETURN OWNER",
+      "if_NO": "RETURN GATEKEEPER",
+      "if_UNCLEAR": "Judge case by case — look for any engagement signals (demo booked, pain points discussed). If present, classify as OWNER unless they explicitly deflect."
+    }
+  },
+
+  "OWNER_SIGNALS": {
+    "description": "Any ONE of these signals is sufficient to classify as OWNER",
+
+    "EXPLICIT_OWNERSHIP_STATEMENTS": {
+      "rule": "Person explicitly identifies themselves as owner or decision-maker",
+      "phrases": [
+        "'I'm the owner'",
+        "'This is my business'",
+        "'I'm the one who handles that'",
+        "'I'll handle this'",
+        "'I make the decisions here'",
+        "'That falls under me'",
+        "'I'm the one you need to talk to'",
+        "'Speaking' (when agent asks for owner by name)",
+        "'This is [Name]' (when agent asked for the owner/decision-maker by name)",
+        "'Yes, that's me' (in response to 'Are you the owner?')"
+      ],
+      "examples": [
+        "Agent: 'Can I speak with the owner?' User: 'Speaking.' = OWNER",
+        "Agent: 'Who handles payroll?' User: 'That would be me.' = OWNER",
+        "User: 'I'm the owner, what do you need?' = OWNER",
+        "User: 'This is my practice.' = OWNER"
+      ]
+    },
+
+    "TITLE_OR_ROLE_CONFIRMATION": {
+      "rule": "Person states a title or role that implies decision-making authority",
+      "titles_that_qualify": [
+        "Owner",
+        "CEO / President / Founder / Co-founder",
+        "CFO / COO / CTO",
+        "Managing Partner",
+        "Director (of relevant department)",
+        "VP (of relevant department)",
+        "Practice Manager (healthcare context)",
+        "Office Manager (if they confirm they handle the relevant function)",
+        "Administrator (if they confirm functional authority)",
+        "Controller / Comptroller",
+        "HR Director / HR Manager (for HR/payroll products)",
+        "IT Director / IT Manager (for tech/EHR products)"
+      ],
+      "examples": [
+        "User: 'I'm the practice manager here.' = OWNER",
+        "User: 'I'm the CFO.' = OWNER",
+        "User: 'I'm the HR director, I handle all that.' = OWNER"
+      ]
+    },
+
+    "FUNCTIONAL_DECISION_MAKER": {
+      "rule": "Person confirms they handle or manage the specific function being discussed, even without a formal title",
+      "CRITICAL": "This is OWNER even if they don't say 'owner' or have a C-suite title",
+      "patterns": [
+        "'I handle the payroll'",
+        "'I manage the EHR system'",
+        "'I'm in charge of billing'",
+        "'I run the HR department'",
+        "'I handle all the accounting'",
+        "'I'm the one who deals with [relevant function]'",
+        "'I set up our systems'",
+        "'I chose our current [software/vendor]'",
+        "'I manage that for the hospital/clinic/office'",
+        "'That's my department'"
+      ],
+      "examples": [
+        "User: 'I'm the practice manager and I handle the EHR system in our hospital.' = OWNER",
+        "User: 'I manage payroll for the company.' = OWNER",
+        "User: 'I handle all the billing here.' = OWNER",
+        "User: 'I'm the one who picked our current system.' = OWNER"
+      ]
+    },
+
+    "SUCCESSFUL_TRANSFER_TO_DECISION_MAKER": {
+      "rule": "Gatekeeper transferred the call and a NEW person picked up who demonstrates decision-making authority",
+      "CRITICAL": "Classify as OWNER based on the person we ENDED UP talking to, not the gatekeeper",
+      "detection_steps": [
+        "Step 1: Identify the initial gatekeeper/screener",
+        "Step 2: Detect transfer attempt ('let me transfer', 'stay on the line', 'please hold')",
+        "Step 3: Verify a DIFFERENT person introduces themselves after the hold/transfer",
+        "Step 4: Check if this new person shows any OWNER signals",
+        "Step 5: If YES → OWNER. If new person is also a gatekeeper → GATEKEEPER"
+      ],
+      "examples": [
+        "Receptionist: 'Let me transfer you.' → User: 'Hi, this is Dr. Smith, how can I help?' = OWNER",
+        "Gatekeeper: 'Stay on the line.' → User: 'This is Mike, the owner. What's this about?' = OWNER",
+        "Screener: 'I'll connect you.' → User: 'Hey, this is Sarah. I handle all the payroll.' = OWNER"
+      ]
+    },
+
+    "ENGAGEMENT_AS_DECISION_MAKER": {
+      "rule": "If a person books a demo OR discusses pain points, classify as OWNER — UNLESS they explicitly state they cannot make decisions or that someone else is the decision-maker.",
+      "CRITICAL": "Booking a demo or discussing pain points is sufficient for OWNER classification on its own. You do NOT need an explicit title or ownership statement.",
+      "signals_sufficient_for_OWNER": [
+        "Books or schedules a demo",
+        "Discusses their pain points or current system challenges",
+        "Asks about pricing or cost",
+        "Asks about implementation or setup",
+        "Compares to their current solution",
+        "Agrees to a callback to evaluate the product",
+        "Discusses timeline for implementation"
+      ],
+      "EXCEPTION_still_GATEKEEPER": "Only classify as GATEKEEPER if the prospect EXPLICITLY says they cannot make decisions or deflects to someone else as the decision-maker.",
+      "examples_OWNER": [
+        "User books a demo without saying someone else decides = OWNER",
+        "User discusses pain points and current system without deflecting = OWNER",
+        "User: 'How much is it?' and does not say someone else decides = OWNER",
+        "User: 'We currently use X, what makes yours different?' = OWNER"
+      ],
+      "examples_still_GATEKEEPER": [
+        "User: 'How much is it? I'll pass it to the boss.' = GATEKEEPER (explicitly deflects to DM)",
+        "User: 'Interesting. You'd need to talk to John about that.' = GATEKEEPER (explicitly says someone else decides)",
+        "User: 'I can't make this decision, let me get the owner.' = GATEKEEPER (explicitly states no authority)"
+      ]
+    }
+  },
+
+  "GATEKEEPER_SIGNALS": {
+    "description": "Any ONE of these signals is sufficient to classify as GATEKEEPER (unless overridden by a later OWNER signal after transfer)",
+
+    "NON_HUMAN_INTERACTIONS": {
+      "rule": "Any call where no live human prospect spoke = GATEKEEPER",
+      "patterns": [
+        "Voicemail box reached",
+        "IVR/phone tree only",
+        "AI receptionist (even if it provides a name or email)",
+        "Hold music with no pickup",
+        "Automated greeting with no human",
+        "Call disconnects immediately"
+      ],
+      "examples": [
+        "'You've reached the voicemail of...' = GATEKEEPER",
+        "'Press 1 for sales, press 2 for...' = GATEKEEPER",
+        "'I'm an AI receptionist for...' = GATEKEEPER",
+        "'Stay on the line' → [silence] → [call ends] = GATEKEEPER"
+      ]
+    },
+
+    "EXPLICIT_GATEKEEPER_STATEMENTS": {
+      "rule": "Person explicitly identifies as a non-decision-maker",
+      "phrases": [
+        "'I'm just the receptionist'",
+        "'I don't handle that'",
+        "'You'd need to talk to [someone else]'",
+        "'I'm not the right person'",
+        "'I'm not the decision-maker'",
+        "'Let me take a message'",
+        "'I'll have someone call you back'",
+        "'I can't make that decision'",
+        "'That's not my department'",
+        "'I just answer the phones'",
+        "'I'll pass this along to [name]'"
+      ],
+      "examples": [
+        "User: 'I'm just the front desk. Let me take a message.' = GATEKEEPER",
+        "User: 'You'd need to talk to Dr. Jones about that.' = GATEKEEPER",
+        "User: 'I don't handle payroll, that's Mary's area.' = GATEKEEPER"
+      ]
+    },
+
+    "SCREENING_BEHAVIOR": {
+      "rule": "Person acts as a screen/filter without demonstrating authority",
+      "patterns": [
+        "Asks 'What is this regarding?' before deciding to connect",
+        "Says 'Let me see if they're available' (screening)",
+        "Takes agent's information to pass along",
+        "Asks for callback number to give to the decision-maker",
+        "Says 'I'll have [name] call you back'",
+        "Blocks access: 'They're not available right now'",
+        "Collects agent info but provides zero prospect info"
+      ],
+      "examples": [
+        "User: 'What is this about? I'll see if he's available.' = GATEKEEPER",
+        "User: 'Give me your number, I'll have the owner call you.' = GATEKEEPER",
+        "User: 'She's in a meeting. Can I take a message?' = GATEKEEPER"
+      ]
+    },
+
+    "DEFLECTION_TO_ACTUAL_DECISION_MAKER": {
+      "rule": "Person explicitly redirects to someone else as the decision-maker",
+      "CRITICAL": "If they name someone else as the person to talk to, the current speaker is GATEKEEPER",
+      "patterns": [
+        "'Talk to [Name], they handle that'",
+        "'You need to speak with the owner, [Name]'",
+        "'[Name] is the one who makes those decisions'",
+        "'I'll transfer you to [Name]' (but transfer fails / no one picks up)",
+        "'Email [Name] at [email]' (redirecting away from themselves)"
+      ],
+      "EXCEPTION": "If after deflection, the actual decision-maker picks up the call → classify as OWNER (based on who we ended up with)",
+      "examples_GATEKEEPER": [
+        "User: 'You'd want to talk to Mike, he's the owner.' [call ends] = GATEKEEPER",
+        "User: 'Let me transfer you to billing.' → [no pickup] = GATEKEEPER",
+        "User: 'Email sarah@company.com, she handles that.' = GATEKEEPER"
+      ],
+      "examples_becomes_OWNER": [
+        "User: 'Let me get Mike.' → Mike: 'Hey, this is Mike, the owner.' = OWNER"
+      ]
+    },
+
+    "FAILED_TRANSFER_PATTERNS": {
+      "rule": "Transfer was attempted but no decision-maker ever spoke = GATEKEEPER",
+      "patterns": [
+        "'Let me transfer you' → hold → silence → call ends",
+        "'Stay on the line' → no new person speaks",
+        "'Please hold' → hold music → disconnect",
+        "'I'll connect you' → voicemail picks up instead",
+        "'Let me see if available' → 'Sorry, they're not in' → call ends"
+      ],
+      "examples": [
+        "Receptionist: 'Let me transfer.' → [hold] → [voicemail] = GATEKEEPER",
+        "Screener: 'Stay on the line.' → [silence] → [call ends] = GATEKEEPER"
+      ]
+    }
+  },
+
+  "EDGE_CASES": {
+    "PRACTICE_MANAGER_IN_HEALTHCARE": {
+      "rule": "Practice managers who say they handle EHR, billing, or clinical systems = OWNER",
+      "rationale": "In healthcare settings, practice managers are often the functional decision-makers for software/vendor choices",
+      "examples": [
+        "User: 'I'm the practice manager. I handle all the EHR systems in our hospital.' = OWNER",
+        "User: 'I'm the office manager, I manage all our billing software.' = OWNER",
+        "User: 'I run the front office and handle vendor decisions.' = OWNER"
+      ]
+    },
+
+    "EMPLOYEE_WHO_HANDLES_FUNCTION": {
+      "rule": "Any employee who confirms they handle the relevant function = OWNER, even without a manager/owner title",
+      "examples": [
+        "User: 'I'm the bookkeeper. I handle all the payroll.' = OWNER",
+        "User: 'I'm in charge of IT here, I manage all our systems.' = OWNER",
+        "User: 'I do the accounting for the company.' = OWNER"
+      ]
+    },
+
+    "OFFICE_MANAGER_AMBIGUITY": {
+      "rule": "Office managers are OWNER only if they confirm handling the relevant function. Otherwise GATEKEEPER.",
+      "examples_OWNER": [
+        "User: 'I'm the office manager and I handle payroll.' = OWNER",
+        "User: 'I'm the office manager. I chose our current system.' = OWNER"
+      ],
+      "examples_GATEKEEPER": [
+        "User: 'I'm the office manager. You'd need to talk to the doctor about that.' = GATEKEEPER (deflects)",
+        "User: 'I'm the office manager. Let me take a message for the owner.' = GATEKEEPER (screening)"
+      ]
+    },
+
+    "SPOUSE_OR_FAMILY_MEMBER": {
+      "rule": "Spouse/family member who says 'I'll handle this' or 'I make the decisions too' = OWNER. Spouse who says 'I'll tell [owner] you called' = GATEKEEPER.",
+      "examples": [
+        "User: 'I'm his wife. I handle all the business finances.' = OWNER",
+        "User: 'I'm his wife. I'll let him know you called.' = GATEKEEPER"
+      ]
+    },
+
+    "PERSON_SAYS_CALL_BACK_FOR_OWNER": {
+      "rule": "If someone says 'call back to speak with the owner' they are NOT the owner = GATEKEEPER",
+      "examples": [
+        "User: 'The owner isn't here right now. Call back tomorrow.' = GATEKEEPER",
+        "User: 'He's out. Try again after 3.' = GATEKEEPER"
+      ]
+    },
+
+    "MULTIPLE_PEOPLE_ON_CALL": {
+      "rule": "If multiple people speak, classify based on the HIGHEST authority person who engaged",
+      "examples": [
+        "Receptionist answers → transfers → Owner speaks and engages = OWNER",
+        "Receptionist answers → transfers → Another receptionist answers = GATEKEEPER"
+      ]
+    },
+
+    "AMBIGUOUS_SHORT_CALLS": {
+      "rule": "If the call is very short and the person shows no engagement signals and no authority signals — judge based on available evidence. If they book a demo or discuss pain points, classify as OWNER even on short calls.",
+      "examples": [
+        "User: 'Hello?' Agent: 'Hi, I'm calling about...' User: 'Not interested.' [hangs up] = GATEKEEPER (no engagement, no authority)",
+        "User books a demo on a short call without deflecting = OWNER"
+      ],
+      "EXCEPTION": "If the agent asked for the owner by name and the person said 'Speaking' or 'That's me' before hanging up = OWNER"
+    },
+
+    "AI_RECEPTIONIST_ALWAYS_GATEKEEPER": {
+      "rule": "AI receptionists are ALWAYS GATEKEEPER, regardless of what information they provide",
+      "rationale": "An AI system is never a decision-maker, even if it provides names, emails, or other details",
+      "examples": [
+        "'I'm an AI receptionist. The owner is John Smith. Email john@company.com.' = GATEKEEPER",
+        "'I'm a virtual assistant. I'll pass your message to the practice manager.' = GATEKEEPER"
+      ]
+    }
+  },
+
+  "ANTI_MISCLASSIFICATION_RULES": [
+    "No default bias — judge each call case by case based on the evidence in the transcript",
+    "Booking a demo OR discussing pain points = OWNER, unless prospect explicitly says they cannot decide",
+    "Taking a message = GATEKEEPER (even if they seem helpful)",
+    "'I'll pass this along' = GATEKEEPER (no authority demonstrated)",
+    "Giving the owner's name or email = GATEKEEPER (they're redirecting, not deciding)",
+    "Failed transfer = GATEKEEPER (we never reached the decision-maker)",
+    "AI receptionist = ALWAYS GATEKEEPER (never a decision-maker)",
+    "Voicemail = ALWAYS GATEKEEPER",
+    "'I'll have someone call you back' = GATEKEEPER (deflection, no authority)",
+    "ONLY classify as OWNER if there is CLEAR evidence of decision-making authority or functional ownership",
+    "Person who engages with the product but says 'I'll need to check with [boss]' = GATEKEEPER (no authority)",
+    "If role is completely ambiguous and person shows no authority signals = GATEKEEPER"
+  ],
+
+  "GPT_MODEL_SPECIFIC_INSTRUCTIONS": {
+    "you_are_using_gpt": "These instructions prevent common GPT classification mistakes",
+
+    "common_mistake_1": {
+      "mistake": "Classifying helpful receptionists as OWNER because they engage with questions",
+      "fix": "Engagement alone ≠ authority. Must show ownership/title/functional authority signal."
+    },
+    "common_mistake_2": {
+      "mistake": "Classifying AI receptionists as OWNER because they provide detailed information",
+      "fix": "AI receptionist = ALWAYS GATEKEEPER, no matter what info they share."
+    },
+    "common_mistake_3": {
+      "mistake": "Classifying the gatekeeper as OWNER when a transfer was attempted but failed",
+      "fix": "Failed transfer = GATEKEEPER. We never reached the decision-maker."
+    },
+    "common_mistake_4": {
+      "mistake": "Classifying ambiguous short calls as OWNER",
+      "fix": "If role is unclear and no authority signals present = GATEKEEPER (default)."
+    },
+    "common_mistake_5": {
+      "mistake": "Missing the transfer — classifying as GATEKEEPER when owner actually picked up after hold",
+      "fix": "Always check if a NEW person spoke after 'stay on the line' / 'please hold'. If they show authority = OWNER."
+    },
+    "common_mistake_6": {
+      "mistake": "Classifying someone who says 'I'll need to ask the boss' as OWNER",
+      "fix": "Needing to ask someone else = no authority = GATEKEEPER."
+    },
+
+    "verification_before_classifying": [
+      "1. Did any live human speak? (If NO → GATEKEEPER)",
+      "2. Was there a transfer? Did a new person pick up? (If YES → classify the new person)",
+      "3. Did the person we spoke with identify as owner/DM/handler? (If YES → OWNER)",
+      "4. Did they state a title implying authority? (If YES → OWNER)",
+      "5. Did they confirm they handle the relevant function? (If YES → OWNER)",
+      "6. Did they deflect to someone else as the decision-maker? (If YES → GATEKEEPER)",
+      "7. Is the role ambiguous with no authority signals? (If YES → GATEKEEPER)"
+    ]
+  },
+
+  "output_requirements": {
+    "type": "string",
+    "allowed_values": ["OWNER", "GATEKEEPER"],
+    "strict_format": "Return ONLY the word OWNER or GATEKEEPER. No labels, JSON, prose, explanation, or extra characters."
+  },
+
+  "final_instruction": "After analyzing the transcript silently using ALL the rules above, return exactly one word: OWNER or GATEKEEPER. Do not include any explanation, notes, or formatting. Return only the classification."
+}
