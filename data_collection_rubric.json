@@ -1,0 +1,228 @@
+{
+  "task": "Read the entire call transcript and count how many of the 9 data points were explicitly collected during this call. Return only the integer count (0-9).",
+
+  "output_requirements": {
+    "type": "integer",
+    "range": "0-9 inclusive",
+    "strict_format": "Return only the integer count (e.g., 4). No labels, JSON, prose, or extra characters.",
+    "logic": "Each data point is worth 1 point. Add 1 for each field that is EXPLICITLY present in the transcript. Do NOT assume or infer missing fields."
+  },
+
+  "CRITICAL_RULES": [
+    "Only count a field if it is EXPLICITLY stated in the transcript",
+    "Do NOT assume or infer. If not clearly said, it does NOT count",
+    "Vague or generic answers do NOT count (see each field's rules)",
+    "Count each field only ONCE regardless of how many times mentioned",
+    "If prospect is an AI receptionist, voicemail, or no live human spoke = return 0 immediately"
+  ],
+
+  "data_points": {
+
+    "1_specific_date_and_time": {
+      "label": "Specific Date & Time",
+      "question": "Did the prospect agree to or propose a specific date AND time for a callback or meeting?",
+      "counts_as_1": [
+        "'Call me on April 10th at 5 PM' = 1",
+        "'Tomorrow at 3 o'clock works' = 1",
+        "'Let's do Friday at 2 PM' = 1",
+        "'Monday morning at 9 AM' = 1"
+      ],
+      "does_NOT_count": [
+        "'Call me tomorrow' (no time) = 0",
+        "'Call me after sometime' = 0",
+        "'I'm busy, call back later' = 0",
+        "'Next week sometime' = 0",
+        "'Tomorrow afternoon' (no specific time) = 0",
+        "'Call me Friday' (no time) = 0"
+      ],
+      "rule": "BOTH a specific date/day AND a specific time must be present. Missing either = does not count."
+    },
+
+    "2_email_address": {
+      "label": "Email Address (Personal/Direct)",
+      "question": "Did the prospect provide a personal or direct email address?",
+      "counts_as_1": [
+        "'My email is john@acme.com' = 1",
+        "'Reach me at sarah@smithco.com' = 1",
+        "'It's mike@greatbusiness.com' = 1"
+      ],
+      "does_NOT_count": [
+        "'info@company.com' = 0 (generic)",
+        "'contact@company.com' = 0 (generic)",
+        "'admin@company.com' = 0 (generic)",
+        "'support@company.com' = 0 (generic)",
+        "Fake or profane email = 0",
+        "Gibberish email = 0",
+        "'I'll email you' (no address given) = 0",
+        "'You have my email' = 0"
+      ],
+      "rule": "Must be a personal format like name@company.com. Generic inboxes and promises to email do NOT count."
+    },
+
+    "3_decision_maker_name": {
+      "label": "Decision Maker's Name",
+      "question": "Was the name of the decision maker explicitly mentioned?",
+      "counts_as_1": [
+        "'Jesse handles payroll here' = 1",
+        "'You need to talk to Mike, he's the right person' = 1",
+        "'Sarah is our owner, she makes those decisions' = 1",
+        "Prospect introduces themselves as the decision maker: 'I'm John and I handle all of this' = 1"
+      ],
+      "does_NOT_count": [
+        "'Talk to our manager' (no name) = 0",
+        "'Someone else handles that' (no name) = 0",
+        "'I'll have someone call you' (no name) = 0",
+        "Gatekeeper's own name when they are NOT the decision maker = 0"
+      ],
+      "rule": "A specific first name (or full name) of the decision maker must be stated. Generic titles without names do NOT count."
+    },
+
+    "4_decision_maker_phone_number": {
+      "label": "Decision Maker's Phone Number (Direct)",
+      "question": "Was a direct phone number provided for the decision maker?",
+      "counts_as_1": [
+        "'His direct number is 555-123-4567' = 1",
+        "'Call Jesse at 555-987-6543' = 1",
+        "'My number is 555-111-2222' (and they are the decision maker) = 1"
+      ],
+      "does_NOT_count": [
+        "'Call our office' (main line, not direct) = 0",
+        "'Same number you called' = 0",
+        "'Call us back at this number' (general routing) = 0",
+        "Number given but it is the main/reception line = 0"
+      ],
+      "rule": "Must be a direct number to the decision maker, not the main office line or a general routing number."
+    },
+
+    "5_company_name": {
+      "label": "Company Name",
+      "question": "Was the company name explicitly stated?",
+      "counts_as_1": [
+        "'We are Acme Corp' = 1",
+        "'This is Smith Industries' = 1",
+        "'I'm calling from ABC Electrical' = 1",
+        "Company name mentioned naturally in conversation = 1"
+      ],
+      "does_NOT_count": [
+        "'Our company' = 0",
+        "'We' or 'Us' = 0",
+        "'My business' = 0",
+        "No company name mentioned at all = 0"
+      ],
+      "rule": "A specific company name must be explicitly stated. Vague references do NOT count."
+    },
+
+    "6_current_method_or_software": {
+      "label": "Current Payroll Method or Software",
+      "question": "Did the prospect explicitly mention what they currently use for payroll?",
+      "counts_as_1": [
+        "'We use QuickBooks' = 1",
+        "'We're on ADP right now' = 1",
+        "'Our CPA handles payroll' = 1",
+        "'We do it manually with checkbooks' = 1",
+        "'We use Gusto' = 1",
+        "'We do payroll in-house with spreadsheets' = 1"
+      ],
+      "does_NOT_count": [
+        "'We have something' = 0",
+        "'We already have a system' = 0",
+        "'We're all set' (no specifics) = 0",
+        "'We use software' (no name) = 0"
+      ],
+      "rule": "A specific tool, method, or provider must be named. Vague statements like 'we have something' do NOT count."
+    },
+
+    "7_pain_point": {
+      "label": "Pain Point with Current Method/Software",
+      "question": "Did the prospect mention at least one specific problem or frustration with their current method or situation?",
+      "counts_as_1": [
+        "'Support is really slow when we have issues' = 1",
+        "'It's not flexible enough for our needs' = 1",
+        "'It takes too long to run payroll every week' = 1",
+        "'We keep making errors doing it manually' = 1",
+        "'It's too expensive for what we get' = 1",
+        "'The system doesn't integrate with our other tools' = 1"
+      ],
+      "does_NOT_count": [
+        "'It's okay but...' (no specific complaint) = 0",
+        "'We're looking for something better' (no reason given) = 0",
+        "'Not happy with it' (too vague) = 0",
+        "General dissatisfaction without a specific issue = 0"
+      ],
+      "rule": "Must be a specific, identifiable pain or frustration. Vague dissatisfaction without detail does NOT count."
+    },
+
+    "8_team_employee_size": {
+      "label": "Team / Employee Size",
+      "question": "Did the prospect mention how many employees or people they have?",
+      "counts_as_1": [
+        "'We have 25 employees' = 1",
+        "'There are about 10 of us' = 1",
+        "'We run payroll for 50 people' = 1",
+        "'Just 3 full-time and 2 part-time' = 1"
+      ],
+      "does_NOT_count": [
+        "'We're a small team' = 0",
+        "'Not many people' = 0",
+        "'A few employees' = 0",
+        "No number or estimate given = 0"
+      ],
+      "rule": "A specific number or close estimate must be given. Vague size references like 'small' or 'a few' do NOT count."
+    },
+
+    "9_budget_signal": {
+      "label": "Budget Signal",
+      "question": "Did the prospect react to pricing, ask about cost, or give any signal about budget?",
+      "counts_as_1": [
+        "'How much does it cost?' = 1",
+        "'What are your pricing plans?' = 1",
+        "'That sounds reasonable' (reacting to a price) = 1",
+        "'That's a bit out of our budget' = 1",
+        "'We're paying $X right now, can you beat that?' = 1",
+        "'Is there a cheaper plan?' = 1",
+        "'What's the ROI on something like this?' = 1"
+      ],
+      "does_NOT_count": [
+        "No mention of cost, price, or budget at all = 0",
+        "Agent mentions price but prospect gives no reaction = 0",
+        "'Send me info' with no pricing question = 0"
+      ],
+      "rule": "Prospect must ask about cost OR react to a price mentioned. Agent mentioning price with no prospect response does NOT count."
+    }
+
+  },
+
+  "scoring_logic": {
+    "method": "Check each of the 9 fields above. Award 1 point for each field that is EXPLICITLY present. Sum the points.",
+    "verification_checklist": [
+      "1. Did prospect give a specific date AND time? (+1)",
+      "2. Did prospect give a personal/direct email? (+1)",
+      "3. Was decision maker's name mentioned? (+1)",
+      "4. Was decision maker's direct phone number given? (+1)",
+      "5. Was company name explicitly stated? (+1)",
+      "6. Was current software/method named specifically? (+1)",
+      "7. Was at least one specific pain point mentioned? (+1)",
+      "8. Was a specific employee/team size given? (+1)",
+      "9. Did prospect ask about or react to pricing/budget? (+1)"
+    ],
+    "examples": [
+      "Email + Company + Current Software = Score 3",
+      "Name + Company + Current Software + Pain Point + Employee Size = Score 5",
+      "All 9 fields present = Score 9",
+      "No live human / voicemail / AI receptionist with no info = Score 0"
+    ]
+  },
+
+  "anti_inflation_rules": [
+    "Do NOT assume a field is present if not explicitly stated",
+    "Vague answers never count — specificity is required for every field",
+    "Generic emails (info@, contact@) = 0 for email field",
+    "Main office number = 0 for phone field",
+    "'Call me sometime' = 0 for date/time field",
+    "'Small team' or 'few people' = 0 for employee size field",
+    "'We have something' = 0 for current software field",
+    "When in doubt, do NOT count the field"
+  ],
+
+  "final_instruction": "After silently checking all 9 fields using the rules above, return exactly one integer from 0 to 9 representing the total number of data points collected. Do not include any explanation, labels, or formatting. Return only the number."
+}
